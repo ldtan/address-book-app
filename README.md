@@ -1,6 +1,6 @@
 # Address Book App
 
-A FastAPI-based Address Book API for storing and querying address entries with validation, geolocation filtering, and SQLite persistence.
+A FastAPI-based Address Book API for storing and querying address entries with validation, geolocation filtering.
 
 ## Overview
 
