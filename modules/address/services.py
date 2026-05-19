@@ -77,7 +77,11 @@ class AddressService:
 
         # Nearby location filtering
         if latitude is not None and longitude is not None and radius_km is not None:
-            if not (math.isfinite(latitude) and math.isfinite(longitude) and math.isfinite(radius_km)):
+            if not (
+                math.isfinite(latitude)
+                and math.isfinite(longitude)
+                and math.isfinite(radius_km)
+            ):
                 raise ValueError("Invalid latitude, longitude, or radius")
             if not -90 <= latitude <= 90:
                 raise ValueError("Latitude must be between -90 and 90")
@@ -97,8 +101,12 @@ class AddressService:
                 # 1 degree of longitude = 111km * cos(latitude)
                 lng_delta = radius_km / (111.0 * cos_lat)
                 stmt = stmt.where(
-                    Address.latitude.between(latitude - lat_delta, latitude + lat_delta),
-                    Address.longitude.between(longitude - lng_delta, longitude + lng_delta),
+                    Address.latitude.between(
+                        latitude - lat_delta, latitude + lat_delta
+                    ),
+                    Address.longitude.between(
+                        longitude - lng_delta, longitude + lng_delta
+                    ),
                 )
 
         result = await db.execute(stmt.offset(skip).limit(limit))
