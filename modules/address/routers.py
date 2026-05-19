@@ -1,13 +1,14 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.database import get_db
 
 from .schemas import AddressCreate, AddressRead, AddressUpdate
 from .services import AddressService
+from core.exc import DuplicateValueError
 
 router = APIRouter(prefix="/addresses", tags=["Addresses"])
 
@@ -17,8 +18,8 @@ DBDep = Annotated[AsyncSession, Depends(get_db)]
 @router.get("/", response_model=list[AddressRead])
 async def get_addresses(
     db: DBDep,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
     lat: float | None = None,
     lon: float | None = None,
     radius: float | None = None,
@@ -27,24 +28,29 @@ async def get_addresses(
     postal_code: str | None = None,
     country: str | None = None,
 ):
-    return await AddressService.get_many(
-        db,
-        skip=skip,
-        limit=limit,
-        latitude=lat,
-        longitude=lon,
-        radius_km=radius,
-        name=name,
-        administrative_area=admin_area,
-        postal_code=postal_code,
-        country=country,
-    )
+    try:
+        return await AddressService.get_many(
+            db,
+            skip=skip,
+            limit=limit,
+            latitude=lat,
+            longitude=lon,
+            radius_km=radius,
+            name=name,
+            administrative_area=admin_area,
+            postal_code=postal_code,
+            country=country,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/", response_model=AddressRead, status_code=status.HTTP_201_CREATED)
 async def create_address(db: DBDep, address_in: AddressCreate):
     try:
         return await AddressService.create(db, address_in)
+    except DuplicateValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -61,6 +67,8 @@ async def get_address(db: DBDep, address_uuid: UUID):
 async def update_address(db: DBDep, address_uuid: UUID, address_in: AddressUpdate):
     try:
         address = await AddressService.update(db, address_uuid, address_in)
+    except DuplicateValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

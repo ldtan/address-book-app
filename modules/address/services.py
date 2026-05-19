@@ -3,10 +3,12 @@ import math
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Address
 from .schemas import AddressCreate, AddressUpdate
+from core.exc import DuplicateValueError
 
 logger = logging.getLogger("address_book.address")
 
@@ -23,7 +25,15 @@ class AddressService:
 
         address = Address(**data.model_dump())
         db.add(address)
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError as exc:
+            await db.rollback()
+            logger.warning(
+                "Address creation failed due to unique constraint: %s",
+                data.name,
+            )
+            raise DuplicateValueError("Address with that name already exists") from exc
         await db.refresh(address)
         logger.info("Address created %s", address.uuid)
         return address
@@ -67,15 +77,29 @@ class AddressService:
 
         # Nearby location filtering
         if latitude is not None and longitude is not None and radius_km is not None:
+            if not (math.isfinite(latitude) and math.isfinite(longitude) and math.isfinite(radius_km)):
+                raise ValueError("Invalid latitude, longitude, or radius")
+            if not -90 <= latitude <= 90:
+                raise ValueError("Latitude must be between -90 and 90")
+            if not -180 <= longitude <= 180:
+                raise ValueError("Longitude must be between -180 and 180")
+            if radius_km < 0:
+                raise ValueError("Radius must be non-negative")
+
             # Approximate 1 degree of latitude = 111km
             lat_delta = radius_km / 111.0
-            # 1 degree of longitude = 111km * cos(latitude)
-            lng_delta = radius_km / (111.0 * math.cos(math.radians(latitude)))
-
-            stmt = stmt.where(
-                Address.latitude.between(latitude - lat_delta, latitude + lat_delta),
-                Address.longitude.between(longitude - lng_delta, longitude + lng_delta),
-            )
+            cos_lat = math.cos(math.radians(latitude))
+            if cos_lat == 0:
+                stmt = stmt.where(
+                    Address.latitude.between(latitude - lat_delta, latitude + lat_delta)
+                )
+            else:
+                # 1 degree of longitude = 111km * cos(latitude)
+                lng_delta = radius_km / (111.0 * cos_lat)
+                stmt = stmt.where(
+                    Address.latitude.between(latitude - lat_delta, latitude + lat_delta),
+                    Address.longitude.between(longitude - lng_delta, longitude + lng_delta),
+                )
 
         result = await db.execute(stmt.offset(skip).limit(limit))
         addresses = list(result.scalars().all())
@@ -112,14 +136,24 @@ class AddressService:
                     data.name,
                     address_uuid,
                 )
-                raise ValueError("Address with that name already exists")
+                raise DuplicateValueError("Address with that name already exists")
 
         update_data = data.model_dump(exclude_unset=True)
         logger.debug("Update data for %s: %s", address_uuid, update_data)
         for key, value in update_data.items():
             setattr(address, key, value)
 
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError as exc:
+            await db.rollback()
+            logger.warning(
+                "Address update failed due to unique constraint: %s for %s",
+                data.name,
+                address_uuid,
+            )
+            raise DuplicateValueError("Address with that name already exists") from exc
+
         await db.refresh(address)
         logger.info("Address updated %s", address_uuid)
         return address
