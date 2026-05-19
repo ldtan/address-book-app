@@ -11,11 +11,12 @@ This project provides a REST API to create, read, update, and delete address rec
 - Postal code format validation
 - Asynchronous SQLite database access via SQLAlchemy AsyncIO
 - Optional nearby address filtering using latitude/longitude and radius
+- Optional filtering by name, administrative_area, postal_code, and country
 - Auto-generated Swagger UI and Redoc documentation
 
 ## Features
 
-- `GET /api/addresses` - list addresses with pagination and optional nearby search
+- `GET /api/addresses` - list addresses with pagination and optional filters
 - `POST /api/addresses` - create an address with validation
 - `GET /api/addresses/{address_uuid}` - read a single address
 - `PUT /api/addresses/{address_uuid}` - update an address
@@ -77,6 +78,7 @@ python -m pip install .
 DATABASE_URI=sqlite+aiosqlite:///./db.sqlite3
 API_PREFIX=/api
 DEBUG=True
+LOG_LEVEL=INFO
 ```
 
 ## Running the application
@@ -124,6 +126,12 @@ Example payload:
 GET /api/addresses?skip=0&limit=100
 ```
 
+### Query addresses with filters
+
+```http
+GET /api/addresses?name=Home&admin_area=IL&postal_code=62701&country=US
+```
+
 ### Query nearby addresses
 
 ```http
@@ -148,11 +156,21 @@ The app initializes the SQLite database automatically during startup by creating
 
 ## Testing
 
-Run tests with:
+Install the test tools and run pytest:
 
 ```bash
-pytest
+python -m pip install pytest pytest-asyncio httpx
+pytest -q
 ```
+
+If you use `uv` for the environment, install the test tools from the uv environment instead:
+
+```bash
+uv run python -m pip install pytest pytest-asyncio httpx
+uv run pytest -q
+```
+
+The test suite uses a repository-root `test_db.sqlite3` database file and resets it before each test session.
 
 ## Notes
 
