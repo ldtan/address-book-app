@@ -26,7 +26,3 @@ class DatetimeTrackerMixin:
             default=lambda: datetime.now(UTC),
             onupdate=lambda: datetime.now(UTC),
         )
-
-    @declared_attr
-    def deleted_at(cls) -> Mapped[sa.DateTime | None]:
-        return mapped_column(sa.DateTime(timezone=True), nullable=True)
