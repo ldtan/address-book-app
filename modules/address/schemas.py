@@ -1,16 +1,22 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class AddressBase(BaseModel):
     name: str
     street: str
-    sub_locality: str | None = None
-    locality: str
-    administrative_area: str | None = None
-    postal_code: str | None = None
+    sub_locality: str | None = Field(
+        default=None,
+        description="Neighborhood, district, barangay, or gated community",
+    )
+    locality: str = Field(description="City, town, or village")
+    administrative_area: str | None = Field(
+        default=None,
+        description="State, Province, Prefecture, or Region",
+    )
+    postal_code: str | None = Field(default=None, description="ZIP/Postal code")
     country: str
     latitude: float
     longitude: float
