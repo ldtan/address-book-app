@@ -4,4 +4,31 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi[standard]>=0.136.1",
+    "sqlalchemy[asyncio]>=2.0.49",
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.13",
+]
+
+[tool.ruff]
+# Target Python version
+target-version = "py314"
+# Set the maximum line length (FastAPI/Black standard is usually 88 or 100)
+line-length = 88
+
+[tool.ruff.lint]
+# Choose which rules to enable. 
+# "E" (Error), "F" (Pyflakes), and "I" (Isort) are great defaults for FastAPI.
+select = ["E", "F", "I", "W", "UP"]
+ignore = []
+
+# Allow unused imports in __init__.py files
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
