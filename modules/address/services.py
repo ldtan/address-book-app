@@ -75,7 +75,9 @@ class AddressService:
 
     @staticmethod
     async def update(
-        db: AsyncSession, address_uuid: UUID, data: AddressUpdate
+        db: AsyncSession,
+        address_uuid: UUID,
+        data: AddressUpdate,
     ) -> Address | None:
         logger.info("Updating address %s", address_uuid)
         address = await AddressService.get_one_by_uuid(db, address_uuid)
