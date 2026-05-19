@@ -11,6 +11,11 @@ from .schemas import AddressCreate, AddressUpdate
 class AddressService:
     @staticmethod
     async def create(db: AsyncSession, data: AddressCreate) -> Address:
+        query = select(Address).where(Address.name == data.name)
+        result = await db.execute(query)
+        if result.scalar_one_or_none():
+            raise ValueError("Address with that name already exists")
+
         address = Address(**data.model_dump())
         db.add(address)
         await db.commit()
@@ -28,7 +33,7 @@ class AddressService:
     ) -> list[Address]:
         stmt = select(Address)
 
-        # Nearby filtering
+        # Nearby location filtering
         if latitude is not None and longitude is not None and radius_km is not None:
             # Approximate 1 degree of latitude = 111km
             lat_delta = radius_km / 111.0
@@ -55,6 +60,12 @@ class AddressService:
         address = await AddressService.get_one_by_uuid(db, address_uuid)
         if not address:
             return None
+
+        if data.name is not None and data.name != address.name:
+            query = select(Address).where(Address.name == data.name)
+            result = await db.execute(query)
+            if result.scalar_one_or_none():
+                raise ValueError("Address with that name already exists")
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():

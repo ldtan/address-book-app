@@ -30,7 +30,10 @@ async def get_addresses(
 
 @router.post("/", response_model=AddressRead, status_code=status.HTTP_201_CREATED)
 async def create_address(db: DBDep, address_in: AddressCreate):
-    return await AddressService.create(db, address_in)
+    try:
+        return await AddressService.create(db, address_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{address_uuid}", response_model=AddressRead)
@@ -43,7 +46,11 @@ async def get_address(db: DBDep, address_uuid: UUID):
 
 @router.put("/{address_uuid}", response_model=AddressRead)
 async def update_address(db: DBDep, address_uuid: UUID, address_in: AddressUpdate):
-    address = await AddressService.update(db, address_uuid, address_in)
+    try:
+        address = await AddressService.update(db, address_uuid, address_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
     return address
