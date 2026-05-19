@@ -12,6 +12,7 @@ async def lifespan(app: FastAPI):
     # Initialize database
     # Note: Explicitly import models to ensure they are registered with Base.metadata
     from infrastructure.database import init_db
+    from modules.address import models  # noqa: F401
 
     await init_db()
 
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
 
     # Import and include your routers here
     from modules.address.routers import router as address_router
+
     app.include_router(address_router, prefix=settings.API_PREFIX)
 
     return app
