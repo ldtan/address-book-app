@@ -77,23 +77,12 @@ class AddressService:
 
         # Nearby location filtering
         if latitude is not None and longitude is not None and radius_km is not None:
-            if not (
-                math.isfinite(latitude)
-                and math.isfinite(longitude)
-                and math.isfinite(radius_km)
-            ):
-                raise ValueError("Invalid latitude, longitude, or radius")
-            if not -90 <= latitude <= 90:
-                raise ValueError("Latitude must be between -90 and 90")
-            if not -180 <= longitude <= 180:
-                raise ValueError("Longitude must be between -180 and 180")
-            if radius_km < 0:
-                raise ValueError("Radius must be non-negative")
-
             # Approximate 1 degree of latitude = 111km
             lat_delta = radius_km / 111.0
             cos_lat = math.cos(math.radians(latitude))
-            if cos_lat == 0:
+            # Use a small tolerance because cos(radians(90)) != 0 exactly
+            if abs(cos_lat) < 1e-12:
+                # Near the poles longitude becomes ill-defined; restrict by latitude band only
                 stmt = stmt.where(
                     Address.latitude.between(latitude - lat_delta, latitude + lat_delta)
                 )
