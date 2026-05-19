@@ -22,9 +22,22 @@ async def get_addresses(
     lat: float | None = None,
     lon: float | None = None,
     radius: float | None = None,
+    name: str | None = None,
+    admin_area: str | None = None,
+    postal_code: str | None = None,
+    country: str | None = None,
 ):
     return await AddressService.get_many(
-        db, skip=skip, limit=limit, latitude=lat, longitude=lon, radius_km=radius
+        db,
+        skip=skip,
+        limit=limit,
+        latitude=lat,
+        longitude=lon,
+        radius_km=radius,
+        name=name,
+        administrative_area=admin_area,
+        postal_code=postal_code,
+        country=country,
     )
 
 

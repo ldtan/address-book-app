@@ -36,16 +36,26 @@ class AddressService:
         latitude: float | None = None,
         longitude: float | None = None,
         radius_km: float | None = None,
+        name: str | None = None,
+        administrative_area: str | None = None,
+        postal_code: str | None = None,
+        country: str | None = None,
     ) -> list[Address]:
         logger.debug(
-            "Fetching addresses skip=%s limit=%s latitude=%s longitude=%s radius=%s",
-            skip,
-            limit,
-            latitude,
-            longitude,
-            radius_km,
+            "Fetching addresses skip=%s limit=%s lat=%s lon=%s radius=%s name=%s area=%s zip=%s country=%s",
+            skip, limit, latitude, longitude, radius_km, name, administrative_area, postal_code, country
         )
         stmt = select(Address)
+
+        # Column filters
+        if name:
+            stmt = stmt.where(Address.name.ilike(f"%{name}%"))
+        if administrative_area:
+            stmt = stmt.where(Address.administrative_area == administrative_area)
+        if postal_code:
+            stmt = stmt.where(Address.postal_code == postal_code)
+        if country:
+            stmt = stmt.where(Address.country == country.upper())
 
         # Nearby location filtering
         if latitude is not None and longitude is not None and radius_km is not None:
