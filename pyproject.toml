@@ -1,7 +1,7 @@
 [project]
 name = "address-book-app"
 version = "0.1.0"
-description = "Add your description here"
+description = "This is an Address Book API."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
