@@ -43,7 +43,15 @@ class AddressService:
     ) -> list[Address]:
         logger.debug(
             "Fetching addresses skip=%s limit=%s lat=%s lon=%s radius=%s name=%s area=%s zip=%s country=%s",
-            skip, limit, latitude, longitude, radius_km, name, administrative_area, postal_code, country
+            skip,
+            limit,
+            latitude,
+            longitude,
+            radius_km,
+            name,
+            administrative_area,
+            postal_code,
+            country,
         )
         stmt = select(Address)
 

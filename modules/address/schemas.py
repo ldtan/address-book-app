@@ -1,11 +1,10 @@
+import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-from typing import Optional
-import pycountry
 import phonenumbers
-import re
+import pycountry
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class AddressBase(BaseModel):
@@ -40,7 +39,7 @@ class AddressCreate(AddressBase):
 
     @field_validator("postal_code")
     @classmethod
-    def validate_postal_code(cls, v: Optional[str]) -> Optional[str]:
+    def validate_postal_code(cls, v: str | None) -> str | None:
         if v is None:
             return v
         # This regex allows letters, numbers, spaces, and hyphens, with a length of 2-10.
@@ -50,7 +49,7 @@ class AddressCreate(AddressBase):
 
     @field_validator("phone_number")
     @classmethod
-    def validate_phone_number(cls, v: Optional[str]) -> Optional[str]:
+    def validate_phone_number(cls, v: str | None) -> str | None:
         if v is None:
             return v
         try:
@@ -77,13 +76,13 @@ class AddressUpdate(BaseModel):
     administrative_area: str | None = None
     postal_code: str | None = None
     country: str | None = None
-    latitude: Optional[float] = Field(
+    latitude: float | None = Field(
         default=None,
         ge=-90,
         le=90,
         description="Latitude in decimal degrees (-90 to 90)",
     )
-    longitude: Optional[float] = Field(
+    longitude: float | None = Field(
         default=None,
         ge=-180,
         le=180,
@@ -96,7 +95,7 @@ class AddressUpdate(BaseModel):
 
     @field_validator("country")
     @classmethod
-    def validate_country_code(cls, v: Optional[str]) -> Optional[str]:
+    def validate_country_code(cls, v: str | None) -> str | None:
         if v is None:
             return v
         if pycountry.countries.get(alpha_2=v.upper()) is None:
@@ -107,7 +106,7 @@ class AddressUpdate(BaseModel):
 
     @field_validator("postal_code")
     @classmethod
-    def validate_postal_code(cls, v: Optional[str]) -> Optional[str]:
+    def validate_postal_code(cls, v: str | None) -> str | None:
         if v is None:
             return v
         if not re.fullmatch(r"^[a-zA-Z0-9\s-]{2,10}$", v):
@@ -116,7 +115,7 @@ class AddressUpdate(BaseModel):
 
     @field_validator("phone_number")
     @classmethod
-    def validate_phone_number(cls, v: Optional[str]) -> Optional[str]:
+    def validate_phone_number(cls, v: str | None) -> str | None:
         if v is None:
             return v
         try:
