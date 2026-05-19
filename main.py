@@ -1,26 +1,36 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from core.config import settings
+from core.logging import configure_logging
+
+logger = logging.getLogger("address_book")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This replaces before_first_request logic
+    logger.info("Application lifespan starting")
 
     # Initialize database
     # Note: Explicitly import models to ensure they are registered with Base.metadata
     from infrastructure.database import init_db
     from modules.address import models  # noqa: F401
 
+    logger.info("Initializing database")
     await init_db()
+    logger.info("Database initialized")
 
     yield
-    # Shutdown logic (if any) would go here
+
+    logger.info("Application lifespan shutting down")
 
 
 def create_app() -> FastAPI:
+    configure_logging(settings.LOG_LEVEL)
+    logger.info("Creating FastAPI application")
+
     app = FastAPI(
         title="Address Book API",
         description="This is an Address Book API.",
@@ -45,6 +55,7 @@ def create_app() -> FastAPI:
 
     app.include_router(address_router, prefix=settings.API_PREFIX)
 
+    logger.info("FastAPI application initialized")
     return app
 
 
@@ -62,4 +73,5 @@ if __name__ == "__main__":
         port=5000,
         reload=reload_app,
         factory=True,
+        log_level=settings.LOG_LEVEL.lower(),
     )
