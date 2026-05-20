@@ -14,7 +14,7 @@ from .schemas import AddressCreate, AddressUpdate
 logger = logging.getLogger("address_book.address")
 
 # One degree of latitude is approximately 111.32 km
-KM_PER_DEGREE = 111.32
+KM_PER_DEGREE: float = 111.32
 
 
 class AddressService:
