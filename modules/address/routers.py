@@ -4,11 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.exc import DuplicateValueError
 from infrastructure.database import get_db
 
 from .schemas import AddressCreate, AddressRead, AddressUpdate
 from .services import AddressService
-from core.exc import DuplicateValueError
 
 router = APIRouter(prefix="/addresses", tags=["Addresses"])
 

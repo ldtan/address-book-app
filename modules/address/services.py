@@ -6,9 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.exc import DuplicateValueError
+
 from .models import Address
 from .schemas import AddressCreate, AddressUpdate
-from core.exc import DuplicateValueError
 
 logger = logging.getLogger("address_book.address")
 
@@ -21,7 +22,7 @@ class AddressService:
         result = await db.execute(query)
         if result.scalar_one_or_none():
             logger.warning("Address creation failed: duplicate name %s", data.name)
-            raise ValueError("Address with that name already exists")
+            raise DuplicateValueError("Address with that name already exists")
 
         address = Address(**data.model_dump())
         db.add(address)
