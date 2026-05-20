@@ -13,6 +13,9 @@ from .schemas import AddressCreate, AddressUpdate
 
 logger = logging.getLogger("address_book.address")
 
+# One degree of latitude is approximately 111.32 km
+KM_PER_DEGREE = 111.32
+
 
 class AddressService:
     @staticmethod
@@ -78,8 +81,7 @@ class AddressService:
 
         # Nearby location filtering
         if latitude is not None and longitude is not None and radius_km is not None:
-            # Approximate 1 degree of latitude = 111km
-            lat_delta = radius_km / 111.0
+            lat_delta = radius_km / KM_PER_DEGREE
             cos_lat = math.cos(math.radians(latitude))
             # Use a small tolerance because cos(radians(90)) != 0 exactly
             if abs(cos_lat) < 1e-12:
@@ -88,8 +90,8 @@ class AddressService:
                     Address.latitude.between(latitude - lat_delta, latitude + lat_delta)
                 )
             else:
-                # 1 degree of longitude = 111km * cos(latitude)
-                lng_delta = radius_km / (111.0 * cos_lat)
+                # 1 degree of longitude = 111.32km * cos(latitude)
+                lng_delta = radius_km / (KM_PER_DEGREE * cos_lat)
                 stmt = stmt.where(
                     Address.latitude.between(
                         latitude - lat_delta, latitude + lat_delta
