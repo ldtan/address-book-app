@@ -56,21 +56,19 @@ source .venv/Scripts/activate   # Windows
 source .venv/bin/activate       # macOS / Linux
 ```
 
-2. Install dependencies.
-
-```bash
-python -m pip install -U pip
-python -m pip install .
-```
-
 > If you use `uv` to manage the project environment, install dependencies from the uv environment instead:
 >
 > ```bash
-> uv run python -m pip install -U pip
-> uv run python -m pip install .
+> uv sync
 > ```
 >
-> Or activate the uv shell and run the same commands from there.
+> This will automatically create a virtual environment for you, as well as install dependencies (no need to do step #2).
+
+2. Install dependencies.
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 3. Create a `.env` file in the project root:
 
