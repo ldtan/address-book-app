@@ -108,6 +108,80 @@ async def test_pagination(client):
     assert data[0]["name"] == "Addr 2"
 
 
+async def test_query_parameter_limits_and_validation(client):
+    await client.post(
+        "/api/addresses/", json={**sample_payload, "name": "One"}
+    )
+    await client.post(
+        "/api/addresses/", json={**sample_payload, "name": "Two"}
+    )
+
+    response = await client.get("/api/addresses/", params={"skip": -1})
+    assert response.status_code == 422
+
+    response = await client.get("/api/addresses/", params={"limit": 501})
+    assert response.status_code == 422
+
+    response = await client.get("/api/addresses/", params={"lat": 0, "lon": 0, "radius": -1})
+    assert response.status_code == 422
+
+
+async def test_filters_name_postal_code_and_country(client):
+    await client.post(
+        "/api/addresses/",
+        json={
+            **sample_payload,
+            "name": "Home Central",
+            "postal_code": "12345",
+            "country": "US",
+        },
+    )
+    await client.post(
+        "/api/addresses/",
+        json={
+            **sample_payload,
+            "name": "Work Central",
+            "postal_code": "67890",
+            "country": "ca",
+        },
+    )
+
+    response = await client.get("/api/addresses/", params={"name": "Central"})
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+    response = await client.get("/api/addresses/", params={"postal_code": "12345"})
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["postal_code"] == "12345"
+
+    response = await client.get("/api/addresses/", params={"country": "us"})
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["country"] == "US"
+
+
+async def test_lat_lon_boundary_values(client):
+    await client.post(
+        "/api/addresses/",
+        json={
+            **sample_payload,
+            "name": "Pole Station",
+            "latitude": -90.0,
+            "longitude": -180.0,
+        },
+    )
+
+    response = await client.get(
+        "/api/addresses/",
+        params={"lat": -90.0, "lon": -180.0, "radius": 1},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Pole Station"
+
+
 async def test_non_geo_filters(client):
     await client.post(
         "/api/addresses/",
