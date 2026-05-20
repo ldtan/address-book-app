@@ -1,3 +1,7 @@
+from uuid import uuid4
+
+import pytest
+
 sample_payload = {
     "name": "Home",
     "street": "123 Main St",
@@ -15,39 +19,39 @@ sample_payload = {
 }
 
 
-def test_crud_address(client):
+async def test_crud_address(client):
     # Create
-    r = client.post("/api/addresses", json=sample_payload)
+    r = await client.post("/api/addresses/", json=sample_payload)
     assert r.status_code == 201
     data = r.json()
     assert data["name"] == sample_payload["name"]
     addr_uuid = data["uuid"]
 
     # Retrieve
-    r = client.get(f"/api/addresses/{addr_uuid}")
+    r = await client.get(f"/api/addresses/{addr_uuid}")
     assert r.status_code == 200
     assert r.json()["uuid"] == addr_uuid
 
     # List
-    r = client.get("/api/addresses")
+    r = await client.get("/api/addresses/")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
     # Update
-    r = client.put(f"/api/addresses/{addr_uuid}", json={"name": "Home Updated"})
+    r = await client.put(f"/api/addresses/{addr_uuid}", json={"name": "Home Updated"})
     assert r.status_code == 200
     assert r.json()["name"] == "Home Updated"
 
     # Delete
-    r = client.delete(f"/api/addresses/{addr_uuid}")
+    r = await client.delete(f"/api/addresses/{addr_uuid}")
     assert r.status_code == 204
 
     # Not found after delete
-    r = client.get(f"/api/addresses/{addr_uuid}")
+    r = await client.get(f"/api/addresses/{addr_uuid}")
     assert r.status_code == 404
 
 
-def test_nearby_filter(client):
+async def test_nearby_filter(client):
     # Create two addresses at different coordinates
     payload_a = sample_payload.copy()
     payload_a["name"] = "Location A"
@@ -59,14 +63,12 @@ def test_nearby_filter(client):
     payload_b["latitude"] = 34.05
     payload_b["longitude"] = -118.25
 
-    r = client.post("/api/addresses", json=payload_a)
-    assert r.status_code == 201
-    r = client.post("/api/addresses", json=payload_b)
-    assert r.status_code == 201
+    await client.post("/api/addresses/", json=payload_a)
+    await client.post("/api/addresses/", json=payload_b)
 
     # Query near Location A (10 km radius)
-    r = client.get(
-        "/api/addresses", params={"lat": 39.7817, "lon": -89.6501, "radius": 10}
+    r = await client.get(
+        "/api/addresses/", params={"lat": 39.7817, "lon": -89.6501, "radius": 10}
     )
     assert r.status_code == 200
     results = r.json()
@@ -74,54 +76,96 @@ def test_nearby_filter(client):
     assert not any(item["name"] == "Location B" for item in results)
 
 
-def test_invalid_country_code(client):
+@pytest.mark.parametrize(
+    "field, value, expected_msg",
+    [
+        ("country", "INVALID", "Invalid country code"),
+        ("phone_number", "12345", "Phone number must start with '+'"),
+        ("phone_number", "+123", "Invalid phone number format"),
+        ("postal_code", "A", "Invalid postal code format"),
+        ("latitude", 100.0, "less than or equal to 90"),
+        ("longitude", 200.0, "less than or equal to 180"),
+    ],
+)
+async def test_address_validation_errors(client, field, value, expected_msg):
     payload = sample_payload.copy()
-    payload["name"] = "Bad Country"
-    payload["country"] = "XX"
+    payload[field] = value
+    response = await client.post("/api/addresses/", json=payload)
+    assert response.status_code == 422
+    errors = response.json()["detail"]
+    assert any(expected_msg in err["msg"] for err in errors)
 
-    r = client.post("/api/addresses", json=payload)
-    # Pydantic validation errors are returned as 422 Unprocessable Entity
-    assert r.status_code == 422
-    assert any(
-        "country" in err.get("loc", []) or "country" in err.get("msg", "")
-        for err in r.json().get("detail", [])
+
+async def test_pagination(client):
+    for i in range(5):
+        await client.post(
+            "/api/addresses/", json={**sample_payload, "name": f"Addr {i}"}
+        )
+
+    response = await client.get("/api/addresses/", params={"skip": 2, "limit": 2})
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["name"] == "Addr 2"
+
+
+async def test_non_geo_filters(client):
+    await client.post(
+        "/api/addresses/",
+        json={
+            **sample_payload,
+            "name": "Office",
+            "administrative_area": "NY",
+            "country": "US",
+        },
     )
 
+    # Test Country Filter
+    resp = await client.get("/api/addresses/", params={"country": "us"})
+    assert len(resp.json()) == 1
 
-def test_invalid_phone_number(client):
-    payload = sample_payload.copy()
-    payload["name"] = "Bad Phone"
-    payload["phone_number"] = "12345"
+    # Test Admin Area Filter
+    resp = await client.get("/api/addresses/", params={"admin_area": "NY"})
+    assert len(resp.json()) == 1
 
-    r = client.post("/api/addresses", json=payload)
+
+async def test_404_and_malformed_uuid(client):
+    random_uuid = str(uuid4())
+
+    # 404 paths
+    assert (await client.get(f"/api/addresses/{random_uuid}")).status_code == 404
+    assert (
+        await client.put(f"/api/addresses/{random_uuid}", json={"name": "New"})
+    ).status_code == 404
+    assert (await client.delete(f"/api/addresses/{random_uuid}")).status_code == 404
+
+    # Malformed UUID
+    r = await client.get("/api/addresses/not-a-uuid")
     assert r.status_code == 422
-    assert any(
-        "phone_number" in err.get("loc", []) or "phone" in err.get("msg", "").lower()
-        for err in r.json().get("detail", [])
+    assert r.json()["detail"][0]["type"] == "uuid_parsing"
+
+
+async def test_partial_update_semantics(client):
+    res = await client.post(
+        "/api/addresses/", json={**sample_payload, "notes": "Keep Me"}
     )
+    addr_uuid = res.json()["uuid"]
+
+    # Update only the name
+    await client.put(f"/api/addresses/{addr_uuid}", json={"name": "New Name"})
+
+    # Verify 'notes' was not cleared
+    final = await client.get(f"/api/addresses/{addr_uuid}")
+    assert final.json()["notes"] == "Keep Me"
+    assert final.json()["name"] == "New Name"
 
 
-def test_invalid_postal_code(client):
-    payload = sample_payload.copy()
-    payload["name"] = "Bad Postal"
-    payload["postal_code"] = "!@#$"
-
-    r = client.post("/api/addresses", json=payload)
-    assert r.status_code == 422
-    assert any(
-        "postal_code" in err.get("loc", []) or "postal" in err.get("msg", "").lower()
-        for err in r.json().get("detail", [])
-    )
-
-
-def test_duplicate_name_rejected(client):
+async def test_duplicate_name_rejected(client):
     payload = sample_payload.copy()
     payload["name"] = "Unique Name"
 
-    r = client.post("/api/addresses", json=payload)
+    r = await client.post("/api/addresses/", json=payload)
     assert r.status_code == 201
 
-    # Attempt to create another with same name
-    r = client.post("/api/addresses", json=payload)
-    assert r.status_code == 400
+    r = await client.post("/api/addresses/", json=payload)
+    assert r.status_code == 409
     assert "already exists" in r.text.lower()

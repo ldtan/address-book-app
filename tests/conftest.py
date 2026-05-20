@@ -1,34 +1,57 @@
 import pathlib
 import sys
 
-import pytest
-
-# Ensure project root is on sys.path so tests can import application packages
+# Add project root to sys.path to resolve internal imports
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from fastapi.testclient import TestClient
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from core.config import settings
+from infrastructure.database import Base, get_db
 from main import create_app
 
 
-@pytest.fixture(scope="session")
-def test_db():
-    db_file = ROOT / "test_db.sqlite3"
-    if db_file.exists():
-        db_file.unlink()
-    settings.DATABASE_URI = f"sqlite+aiosqlite:///{db_file}"
-    return db_file
-
-
 @pytest.fixture
-def app(test_db):
-    # Create the FastAPI app using the test database settings
+def app():
     return create_app()
 
 
-@pytest.fixture
-def client(app):
-    with TestClient(app) as client:
-        yield client
+@pytest_asyncio.fixture
+async def db_session():
+    """Create a fresh in-memory database for each test case."""
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+    )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client(app, db_session):
+    """
+    Async client using ASGITransport and dependency overrides.
+    Ensures DB isolation without mutating global settings.
+    """
+
+    async def _get_test_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _get_test_db
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
